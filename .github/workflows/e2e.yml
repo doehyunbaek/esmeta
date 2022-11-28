@@ -18,7 +18,7 @@ jobs:
         cd $ESMETA_HOME/client 
         npm ci
         npx playwright install chromium --with-deps
-        npx playwright test --chromium
+        npx playwright test --project=chromium
     - uses: actions/upload-artifact@v3
       if: always()
       with:
