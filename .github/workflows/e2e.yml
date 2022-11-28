@@ -15,6 +15,6 @@ jobs:
     - name: Run backend server
       run: sbt "run web"
     - name: Run frontend server
-      run: cd $ESMETA_HOME/client; npm install; npm start
+      run: cd $ESMETA_HOME/client; npm install; npm start &
     - name: Run e2e tests
       run: cd $ESMETA_HOME/client; npx playwright test
