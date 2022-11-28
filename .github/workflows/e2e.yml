@@ -16,6 +16,6 @@ jobs:
       run: |
         sbt assembly
         cd $ESMETA_HOME/client 
-        npm install
-        npx playwright install chromium --with-deps
-        npx playwright test --project=chromium
+        npm ci
+        npx playwright install --with-deps
+        npx playwright test
