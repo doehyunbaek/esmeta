@@ -1,0 +1,20 @@
+name: e2e
+on:
+  push:
+  pull_request:
+env:
+  ESMETA_HOME: ${{ github.workspace }}
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+    - name: Run backend server
+      run: sbt "run web"
+    - name: Run frontend server
+      run: cd $ESMETA_HOME/client; npm install; npm start
+    - name: Run e2e tests
+      run: cd $ESMETA_HOME/client; npx playwright test
