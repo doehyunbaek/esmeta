@@ -13,8 +13,5 @@ jobs:
       with:
         submodules: true
     - name: Run backend server
-      run: nohup sbt "run web" &
-    - name: Run frontend server
-      run: cd $ESMETA_HOME/client; npm install; npm start &
-    - name: Run e2e tests
-      run: cd $ESMETA_HOME/client; npx playwright install --with-deps; npx playwright test
+      run: sbt "run web"
+    - run: curl http://localhost:8080
