@@ -13,6 +13,7 @@ import esmeta.util.*
 import esmeta.util.BaseUtils.*
 import esmeta.util.SystemUtils.*
 import java.util.concurrent.TimeoutException
+import scala.collection.parallel.CollectionConverters._
 
 /** data in Test262 */
 case class Test262(
@@ -101,46 +102,8 @@ case class Test262(
   ): Summary = {
     // get metadata list
     val dataList: List[MetaData] = getDataList(paths.toList)
-
-    // use error handler for multiple targets
-    val multiple = dataList.length > 1
-
-    // get all applicable tests with progress bar
-    val tests = getTests(
-      name = "eval",
-      dataList = dataList,
-      useProgress = useProgress,
-      useErrorHandler = multiple,
-    )
-
-    // coverage with time limit
-    lazy val cov = Coverage(
-      cfg = cfg,
-      test262 = Some(this),
-      timeLimit = timeLimit,
-    )
-
-    // run tests with logging
-    logForTests(
-      name = "eval",
-      tests = tests,
-      postSummary = if (useCoverage) cov.toString else "",
-      log = log && multiple,
-    )(
-      // check final execution status of each Test262 test
-      check = test =>
-        val filename = test.name
-        val st =
-          if (!useCoverage) evalFile(filename, log && !multiple, timeLimit)
-          else cov.run(filename)
-        val returnValue = st(GLOBAL_RESULT)
-        if (returnValue != Undef) throw InvalidExit(returnValue)
-      ,
-      // dump coverage
-      logDir => if (useCoverage) cov.dumpTo(logDir),
-    )
-
-    tests.summary
+    dataList.par.foreach(metadata => evalFile(metadata.path, true, timeLimit))
+    Summary()
   }
 
   /** parse test */
@@ -190,7 +153,9 @@ case class Test262(
     filename: String,
     log: Boolean = false,
     timeLimit: Option[Int] = None,
-  ): State = eval(loadTest(filename), log, timeLimit)
+  ): State =
+    println(filename)
+    eval(loadTest(filename), log, timeLimit)
   private def eval(
     script: Ast,
     log: Boolean = false,

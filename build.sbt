@@ -151,6 +151,7 @@ lazy val root = project
       "org.apache.commons" % "commons-text" % "1.9",
       "org.jsoup" % "jsoup" % "1.14.3",
       "org.jline" % "jline" % "3.13.3",
+      "org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4",
       ("org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2")
         .cross(CrossVersion.for3Use2_13),
       ("com.typesafe.akka" %% "akka-actor-typed" % AkkaVersion)
