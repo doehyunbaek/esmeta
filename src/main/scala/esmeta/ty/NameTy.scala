@@ -51,7 +51,7 @@ case class NameTy(set: BSet[String] = Fin())
   // normalization
   def norm: NameTy = this.set match
     case Inf      => this
-    case Fin(set) => NameTy(Fin(set.filter(x => !isSubTy(x, set - x))))
+    case Fin(set) => this
 
   /** get single value */
   def getSingle: Flat[Nothing] = if (isBottom) Zero else Many
