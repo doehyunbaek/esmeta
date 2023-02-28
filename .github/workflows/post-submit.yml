@@ -1,25 +1,31 @@
-name: post-submit
-on:
-  push:
-    branches:
-      - dev
+name: gsheet.action test
+on: push
+
 jobs:
-  test262test:
+  fetch:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      with:
-        submodules: true
-    - name: Run test
-      env:
-        ESMETA_HOME: ${{ github.workspace }}
-      run: sbt test262EvalTest
-    - name: Report Status
-      if: failure()
-      uses: 8398a7/action-slack@v3
-      with:
-        status: ${{ job.status }}
-        fields: repo,message,commit,author,action,eventName,ref,workflow,job,took,pullRequest
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - id: "echo_url"
+        run: |
+          echo "https://github.com/${{github.repository}}/commit/${{github.sha}}"
+      - id: "run_test"
+        run: |
+          # output date, succeeded, failed, canceled, ignored, pending
+          data="[[ \"$(date -I)\", $(sbt test | grep "succeeded" | awk -F'[ ,:]+' '{print "\""$4"\", \""$6"\", \""$8"\",  \""$10"\",  \""$12"\"]]"}')"
+          sbt test
+          testonly="$(sbt test)"
+          echo $testonly
+          echo $data
+          echo "test_result=$data" >> $GITHUB_ENV
+      - id: "update_worksheet"
+        uses: jroehl/gsheet.action@v1.0.0 # you can specify '@release' to always have the latest changes
+        with:
+          spreadsheetId: 1TjIRPE_4jJdAbmOaklSA1ofBBGc6QGu9Bp0muJNYvWI
+          commands: | # list of commands, specified as a valid JSON string
+            [
+              { "command": "getWorksheet", "args": { "worksheetTitle": "report" }},
+              { "command": "appendData", "args": { "data": ${{ env.test_result }}, "minCol": 1 }}
+            ]
+        env:
+          GSHEET_CLIENT_EMAIL: ${{ secrets.GSHEET_CLIENT_EMAIL }}
+          GSHEET_PRIVATE_KEY: ${{ secrets.GSHEET_PRIVATE_KEY }}
