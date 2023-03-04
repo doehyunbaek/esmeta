@@ -1,7 +1,6 @@
 package esmeta.interpreter
 
 import esmeta.{EVAL_LOG_DIR, LINE_SEP}
-import esmeta.analyzer.*
 import esmeta.cfg.*
 import esmeta.error.*
 import esmeta.error.NotSupported.{*, given}
@@ -71,15 +70,6 @@ class Interpreter(
           false
         case CallContext(retId, ctxt) :: rest =>
           val (ret, value) = st.context.retVal.getOrElse(throw NoReturnValue)
-          if (tycheck) (st.typeOf(value), func.retTy.ty) match
-            case (actual: ValueTy, ty: ValueTy) if !ty.contains(value, st) =>
-              val calleeRp = ReturnPoint(func, View())
-              var msg = ""
-              msg += ReturnTypeMismatch(ret, calleeRp, actual)
-              msg += LINE_SEP + "- return  : " + value
-              st.filename.map(msg += LINE_SEP + "- filename: " + _)
-              warn(msg)
-            case _ =>
           st.context = ctxt
           st.callStack = rest
           setCallResult(retId, value)
@@ -493,19 +483,6 @@ class Interpreter(
           case _: Cont =>
           case _       => throw RemainingArgs(args)
       case (param :: pl, arg :: al) =>
-        if (tycheck) param.ty.ty match
-          // ignore type check for `this` value
-          case _ if (func.isMethod || func.isSDO) && idx == 0 =>
-          case ty: ValueTy if !ty.contains(arg, st) =>
-            val callerNp = NodePoint(cfg.funcOf(caller), caller, View())
-            val calleeRp = ReturnPoint(func, View())
-            val argTy = st.typeOf(arg)
-            var msg = ""
-            msg += ParamTypeMismatch(callerNp, calleeRp, idx, param, argTy)
-            msg += LINE_SEP + "- argument: " + arg
-            st.filename.map(msg += LINE_SEP + "- filename: " + _)
-            warn(msg)
-          case _ =>
         map += param.lhs -> arg
         aux(pl, al, idx + 1)
     }

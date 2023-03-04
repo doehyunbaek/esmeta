@@ -2,7 +2,6 @@ package esmeta.util
 
 import esmeta.MANUALS_DIR
 import esmeta.spec.Spec
-import esmeta.test262.util.ManualConfig
 import esmeta.util.BaseUtils.*
 import esmeta.util.SystemUtils.*
 import java.io.File
@@ -23,9 +22,6 @@ case class ManualInfo(version: Option[Spec.Version]) {
   /** get bugfixes */
   def bugfixFile: Option[File] = bugfixPath.map(File(_))
   def bugfixPath: Option[String] = getPath("bugfix.patch")
-
-  /** get test262 */
-  def test262: ManualConfig = ManualConfig(paths)
 
   /** get tycheck-ignore.json */
   def tycheckIgnore: Option[String] = getPath("tycheck-ignore.json")

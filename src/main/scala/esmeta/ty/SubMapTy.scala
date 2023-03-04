@@ -1,6 +1,5 @@
 package esmeta.ty
 
-import esmeta.analyzer.domain.*
 import esmeta.util.*
 import esmeta.ty.util.Parser
 
@@ -56,9 +55,6 @@ case class SubMapTy(
         this.key -- that.key,
         this.value -- that.value,
       ).norm
-
-  /** get single value */
-  def getSingle: Flat[AValue] = if (this.isBottom) Zero else Many
 
   // normalization
   private def norm: SubMapTy =
