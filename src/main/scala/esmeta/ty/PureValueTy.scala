@@ -4,7 +4,6 @@ import esmeta.cfg.Func
 import esmeta.state.*
 import esmeta.ty.util.Parser
 import esmeta.util.*
-import esmeta.analyzer.domain.*
 
 /** pure value types (non-completion record types) */
 sealed trait PureValueTy extends TyElem with Lattice[PureValueTy] {
@@ -167,27 +166,6 @@ sealed trait PureValueTy extends TyElem with Lattice[PureValueTy] {
         this.nullv -- that.nullv,
         this.absent -- that.absent,
       )
-
-  /** get single value */
-  def getSingle: Flat[APureValue] =
-    (if (this.clo.isBottom) Zero else Many) ||
-    (if (this.cont.isBottom) Zero else Many) ||
-    (if (this.name.isBottom) Zero else Many) ||
-    (if (this.record.isBottom) Zero else Many) ||
-    (if (this.list.isBottom) Zero else Many) ||
-    (if (this.symbol.isBottom) Zero else Many) ||
-    (if (this.astValue.isBottom) Zero else Many) ||
-    nt.getSingle ||
-    (if (this.codeUnit.isBottom) Zero else Many) ||
-    (const.getSingle.map(Const(_): APureValue)) ||
-    (math.getSingle.map(Math(_): APureValue)) ||
-    number.getSingle ||
-    (if (this.bigInt.isBottom) Zero else Many) ||
-    (str.getSingle.map(Str(_): APureValue)) ||
-    (bool.getSingle.map(Bool(_): APureValue)) ||
-    (if (this.undef.isBottom) Zero else One(Undef)) ||
-    (if (this.nullv.isBottom) Zero else One(Null)) ||
-    (if (this.absent.isBottom) Zero else One(Absent))
 
   /** normalization */
   def norm: PureValueTy = if (
