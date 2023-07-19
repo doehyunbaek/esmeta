@@ -87,10 +87,18 @@ class AbsSemantics(
     case None =>
       // set the current control point
       curCp = None
+      sem.noReturnCheck
       // finalize REPL
       if (USE_REPL) repl.finished
       // final result
       this
+
+  def noReturnCheck: Unit = {
+    val set = npMap.keySet.map {
+      case NodePoint(func, node, view) => ReturnPoint(cfg.funcOf(node), view)
+    } -- rpMap.keySet
+    for (rp <- set) warning(s"no return: ${getString(rp, "", false)}")
+  }
 
   /** get return edges */
   def getRetEdges(rp: ReturnPoint): Set[NodePoint[Call]] =
