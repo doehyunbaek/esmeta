@@ -173,56 +173,58 @@ class AbsTransfer(sem: AbsSemantics) extends Optimized with PruneHelper {
   }
 
   /** transfer function for normal instructions */
-  def transfer(inst: NormalInst)(using cp: NodePoint[_]): Updater = inst match {
-    case IExpr(expr) =>
-      for {
-        v <- transfer(expr)
-      } yield v
-    case ILet(id, expr) =>
-      for {
-        v <- transfer(expr)
-        _ <- modify(_.defineLocal(id -> v))
-      } yield ()
-    case IAssign(ref, expr) =>
-      for {
-        rv <- transfer(ref)
-        v <- transfer(expr)
-        _ <- modify(_.update(rv, v))
-      } yield ()
-    case IDelete(ref) =>
-      for {
-        rv <- transfer(ref)
-        _ <- modify(_.delete(rv))
-      } yield ()
-    case IPush(expr, list, front) =>
-      for {
-        l <- transfer(list)
-        v <- transfer(expr)
-        _ <- modify(_.push(l, v, front))
-      } yield ()
-    case IRemoveElem(list, elem) =>
-      for {
-        l <- transfer(list)
-        v <- transfer(elem)
-        _ <- modify(_.remove(l, v))
-      } yield ()
-    case inst @ IReturn(expr) =>
-      for {
-        v <- transfer(expr)
-        _ <- doReturn(inst, v)
-        _ <- put(AbsState.Bot)
-      } yield ()
-    case IAssert(expr: EYet) =>
-      st => st /* skip not yet compiled assertions */
-    case IAssert(expr) =>
-      for {
-        v <- transfer(expr)
-        _ <- modify(prune(expr, true))
-        _ <- if (v ⊑ AVF) put(AbsState.Bot) else pure(())
-      } yield ()
-    case IPrint(expr) => st => st /* skip */
-    case INop()       => st => st /* skip */
-  }
+  def transfer(inst: NormalInst)(using cp: NodePoint[_]): Updater = bottomCheck(
+    inst match {
+      case IExpr(expr) =>
+        for {
+          v <- transfer(expr)
+        } yield v
+      case ILet(id, expr) =>
+        for {
+          v <- transfer(expr)
+          _ <- modify(_.defineLocal(id -> v))
+        } yield ()
+      case IAssign(ref, expr) =>
+        for {
+          rv <- transfer(ref)
+          v <- transfer(expr)
+          _ <- modify(_.update(rv, v))
+        } yield ()
+      case IDelete(ref) =>
+        for {
+          rv <- transfer(ref)
+          _ <- modify(_.delete(rv))
+        } yield ()
+      case IPush(expr, list, front) =>
+        for {
+          l <- transfer(list)
+          v <- transfer(expr)
+          _ <- modify(_.push(l, v, front))
+        } yield ()
+      case IRemoveElem(list, elem) =>
+        for {
+          l <- transfer(list)
+          v <- transfer(elem)
+          _ <- modify(_.remove(l, v))
+        } yield ()
+      case inst @ IReturn(expr) =>
+        for {
+          v <- transfer(expr)
+          _ <- doReturn(inst, v)
+          _ <- put(AbsState.Bot)
+        } yield ()
+      case IAssert(expr: EYet) =>
+        (st: AbsState.Elem) => st /* skip not yet compiled assertions */
+      case IAssert(expr) =>
+        for {
+          v <- transfer(expr)
+          _ <- modify(prune(expr, true))
+          _ <- if (v ⊑ AVF) put(AbsState.Bot) else pure(())
+        } yield ()
+      case IPrint(expr) => (st: AbsState.Elem) => st /* skip */
+      case INop()       => (st: AbsState.Elem) => st /* skip */
+    },
+  )
 
   /** transfer function for call instructions */
   def transfer(call: Call)(using cp: NodePoint[_]): Result[AbsValue] =
@@ -308,243 +310,248 @@ class AbsTransfer(sem: AbsSemantics) extends Optimized with PruneHelper {
 
   /** transfer function for expressions */
   def transfer(expr: Expr)(using cp: ControlPoint): Result[AbsValue] =
-    expr match {
-      case EComp(ty, value, target) =>
-        for {
-          tyV <- transfer(ty)
-          v <- transfer(value)
-          targetV <- transfer(target)
-        } yield AbsValue.createCompletion(tyV, v, targetV)
-      case EIsCompletion(expr) =>
-        for {
-          v <- transfer(expr)
-        } yield v.isCompletion
-      case riaExpr @ EReturnIfAbrupt(ERef(ref), check) =>
-        for {
-          rv <- transfer(ref)
-          v <- transfer(rv)
-          newV <- returnIfAbrupt(riaExpr, v, check)
-          _ <-
-            if (!newV.isBottom) modify(_.update(rv, newV))
-            else put(AbsState.Bot)
-        } yield newV
-      case riaExpr @ EReturnIfAbrupt(expr, check) =>
-        for {
-          v <- transfer(expr)
-          newV <- returnIfAbrupt(riaExpr, v, check)
-        } yield newV
-      case EPop(list, front) =>
-        for {
-          v <- transfer(list)
-          pv <- id(_.pop(v, front))
-        } yield pv
-      case EParse(code, rule) =>
-        for {
-          c <- transfer(code)
-          r <- transfer(rule)
-        } yield c.parse(r)
-      case ENt(name, params) => AbsValue(Nt(name, params))
-      case ESourceText(expr) =>
-        for { v <- transfer(expr) } yield v.sourceText
-      case e @ EGetChildren(ast) =>
-        val asite = AllocSite(e.asite, cp.view)
-        for {
-          av <- transfer(ast)
-          lv <- id(_.getChildren(asite, av))
-        } yield lv
-      case e @ EGetItems(nt, ast) =>
-        val asite = AllocSite(e.asite, cp.view)
-        for {
-          nv <- transfer(nt)
-          av <- transfer(ast)
-          lv <- id(_.getItems(asite, nv, av))
-        } yield lv
-      case EYet(msg) =>
-        if (YET_THROW) notSupported(msg)
-        else AbsValue.Bot
-      case EContains(list, elem, field) =>
-        for {
-          l <- transfer(list)
-          v <- transfer(elem)
-          st <- get
-        } yield st.contains(l, v, field)
-      case ESubstring(expr, from, None) =>
-        for {
-          v <- transfer(expr)
-          f <- transfer(from)
-        } yield v.substring(f)
-      case ESubstring(expr, from, Some(to)) =>
-        for {
-          v <- transfer(expr)
-          f <- transfer(from)
-          t <- transfer(to)
-        } yield v.substring(f, t)
-      case ERef(ref) =>
-        for {
-          rv <- transfer(ref)
-          v <- transfer(rv)
-        } yield v
-      case EUnary(uop, expr) =>
-        for {
-          v <- transfer(expr)
-          v0 <- get(transfer(_, uop, v))
-        } yield v0
-      case EBinary(BOp.And, left, right) =>
-        shortCircuit(BOp.And, left, right)
-      case EBinary(BOp.Or, left, right) => shortCircuit(BOp.Or, left, right)
-      case EBinary(BOp.Eq, ERef(ref), EAbsent()) =>
-        for {
-          rv <- transfer(ref)
-          b <- get(_.exists(rv))
-        } yield !b
-      case EBinary(bop, left, right) =>
-        for {
-          lv <- transfer(left)
-          rv <- transfer(right)
-          v <- get(transfer(_, bop, lv, rv))
-        } yield v
-      case EVariadic(vop, exprs) =>
-        for {
-          vs <- join(exprs.map(transfer))
-        } yield transfer(vop, vs)
-      case EClamp(target, lower, upper) =>
-        for {
-          v <- transfer(target)
-          lv <- transfer(lower)
-          uv <- transfer(upper)
-        } yield v.clamp(lv, uv)
-      case EMathOp(mop, exprs) =>
-        for {
-          vs <- join(exprs.map(transfer))
-        } yield transfer(mop, vs)
-      case EConvert(cop, expr) =>
-        import COp.*
-        for {
-          v <- transfer(expr)
-          r <- cop match
-            case ToStr(Some(radix)) => transfer(radix)
-            case ToStr(None)        => pure(AbsValue(Math(10)))
-            case _                  => pure(AbsValue.Bot)
-        } yield v.convertTo(cop, r)
-      case ETypeOf(base) =>
-        for {
-          v <- transfer(base)
-          st <- get
-        } yield v.typeOf(st)
-      case ETypeCheck(expr, tyExpr) =>
-        for {
-          v <- transfer(expr)
-          tv <- transfer(tyExpr)
-          st <- get
-        } yield tv.getSingle match
-          case One(Str(s))   => v.typeCheck(s, st)
-          case One(Nt(n, _)) => v.typeCheck(n, st)
-          case _             => AbsValue.boolTop
+    bottomCheck(
+      expr match {
+        case EComp(ty, value, target) =>
+          for {
+            tyV <- transfer(ty)
+            v <- transfer(value)
+            targetV <- transfer(target)
+          } yield AbsValue.createCompletion(tyV, v, targetV)
+        case EIsCompletion(expr) =>
+          for {
+            v <- transfer(expr)
+          } yield v.isCompletion
+        case riaExpr @ EReturnIfAbrupt(ERef(ref), check) =>
+          for {
+            rv <- transfer(ref)
+            v <- transfer(rv)
+            newV <- returnIfAbrupt(riaExpr, v, check)
+            _ <-
+              if (!newV.isBottom) modify(_.update(rv, newV))
+              else put(AbsState.Bot)
+          } yield newV
+        case riaExpr @ EReturnIfAbrupt(expr, check) =>
+          for {
+            v <- transfer(expr)
+            newV <- returnIfAbrupt(riaExpr, v, check)
+          } yield newV
+        case EPop(list, front) =>
+          for {
+            v <- transfer(list)
+            pv <- id(_.pop(v, front))
+          } yield pv
+        case EParse(code, rule) =>
+          for {
+            c <- transfer(code)
+            r <- transfer(rule)
+          } yield c.parse(r)
+        case ENt(name, params) => AbsValue(Nt(name, params))
+        case ESourceText(expr) =>
+          for { v <- transfer(expr) } yield v.sourceText
+        case e @ EGetChildren(ast) =>
+          val asite = AllocSite(e.asite, cp.view)
+          for {
+            av <- transfer(ast)
+            lv <- id(_.getChildren(asite, av))
+          } yield lv
+        case e @ EGetItems(nt, ast) =>
+          val asite = AllocSite(e.asite, cp.view)
+          for {
+            nv <- transfer(nt)
+            av <- transfer(ast)
+            lv <- id(_.getItems(asite, nv, av))
+          } yield lv
+        case EYet(msg) =>
+          if (YET_THROW) notSupported(msg)
+          else AbsValue.Bot
+        case EContains(list, elem, field) =>
+          for {
+            l <- transfer(list)
+            v <- transfer(elem)
+            st <- get
+          } yield st.contains(l, v, field)
+        case ESubstring(expr, from, None) =>
+          for {
+            v <- transfer(expr)
+            f <- transfer(from)
+          } yield v.substring(f)
+        case ESubstring(expr, from, Some(to)) =>
+          for {
+            v <- transfer(expr)
+            f <- transfer(from)
+            t <- transfer(to)
+          } yield v.substring(f, t)
+        case ERef(ref) =>
+          for {
+            rv <- transfer(ref)
+            v <- transfer(rv)
+          } yield v
+        case EUnary(uop, expr) =>
+          for {
+            v <- transfer(expr)
+            v0 <- get(transfer(_, uop, v))
+          } yield v0
+        case EBinary(BOp.And, left, right) =>
+          shortCircuit(BOp.And, left, right)
+        case EBinary(BOp.Or, left, right) => shortCircuit(BOp.Or, left, right)
+        case EBinary(BOp.Eq, ERef(ref), EAbsent()) =>
+          for {
+            rv <- transfer(ref)
+            b <- get(_.exists(rv))
+          } yield !b
+        case EBinary(bop, left, right) =>
+          for {
+            lv <- transfer(left)
+            rv <- transfer(right)
+            v <- get(transfer(_, bop, lv, rv))
+          } yield v
+        case EVariadic(vop, exprs) =>
+          for {
+            vs <- join(exprs.map(transfer))
+          } yield transfer(vop, vs)
+        case EClamp(target, lower, upper) =>
+          for {
+            v <- transfer(target)
+            lv <- transfer(lower)
+            uv <- transfer(upper)
+          } yield v.clamp(lv, uv)
+        case EMathOp(mop, exprs) =>
+          for {
+            vs <- join(exprs.map(transfer))
+          } yield transfer(mop, vs)
+        case EConvert(cop, expr) =>
+          import COp.*
+          for {
+            v <- transfer(expr)
+            r <- cop match
+              case ToStr(Some(radix)) => transfer(radix)
+              case ToStr(None)        => pure(AbsValue(Math(10)))
+              case _                  => pure(AbsValue.Bot)
+          } yield v.convertTo(cop, r)
+        case ETypeOf(base) =>
+          for {
+            v <- transfer(base)
+            st <- get
+          } yield v.typeOf(st)
+        case ETypeCheck(expr, tyExpr) =>
+          for {
+            v <- transfer(expr)
+            tv <- transfer(tyExpr)
+            st <- get
+          } yield tv.getSingle match
+            case One(Str(s))   => v.typeCheck(s, st)
+            case One(Nt(n, _)) => v.typeCheck(n, st)
+            case _             => AbsValue.boolTop
 
-      case EClo(fname, cap) =>
-        cfg.fnameMap.get(fname) match {
-          case Some(f) =>
-            for {
-              st <- get
-              captured = cap.map(x => x -> st.lookupLocal(x)).toMap
-            } yield AbsValue(AClo(f, captured))
-          case None =>
-            for { _ <- put(AbsState.Bot) } yield AbsValue.Bot
-        }
-      case ECont(fname) =>
-        for {
-          st <- get
-          func = cfg.fnameMap(fname)
-          target = NodePoint(func, func.entry, cp.view)
-          captured = st.locals.collect { case (x: Name, av) => x -> av }
-          // return edges for resumed evaluation
-          currRp = ReturnPoint(cp.func, cp.view)
-          contRp = ReturnPoint(func, cp.view)
-          _ = sem.retEdges += (contRp -> sem.retEdges.getOrElse(currRp, Set()))
-        } yield AbsValue(ACont(target, captured))
-      case ERandom() => pure(AbsValue.numberTop)
-      case ESyntactic(name, args, rhsIdx, children) =>
-        for {
-          cs <- join(children.map {
-            case Some(child) => transfer(child).map(Some(_))
-            case None        => pure(None)
-          })
-        } yield {
-          if (cs.exists(cOpt => cOpt.fold(false)(_.isBottom))) AbsValue.Bot
-          else {
-            val cs0 = cs.map(cOpt =>
-              cOpt.map(_.getSingle match {
-                case One(AstValue(child)) => child
-                case _                    => exploded("ESyntactic")
-              }),
-            )
-            AbsValue(Syntactic(name, args, rhsIdx, cs0))
-          }
-        }
-      case ELexical(name, expr) => notSupported("ELexical")
-      case e @ EMap(tname, props) =>
-        val asite = AllocSite(e.asite, cp.view)
-        for {
-          pairs <- join(props.map {
-            case (kexpr, vexpr) =>
+        case EClo(fname, cap) =>
+          cfg.fnameMap.get(fname) match {
+            case Some(f) =>
               for {
-                k <- transfer(kexpr)
-                v <- transfer(vexpr)
-              } yield (k, v)
-          })
-          lv <- id(_.allocMap(asite, tname, pairs))
-        } yield lv
-      case e @ EList(exprs) =>
-        val asite = AllocSite(e.asite, cp.view)
-        for {
-          vs <- join(exprs.map(transfer))
-          lv <- id(_.allocList(asite, vs))
-        } yield lv
-      case e @ EListConcat(exprs) =>
-        val asite = AllocSite(e.asite, cp.view)
-        for {
-          ls <- join(exprs.map(transfer))
-          lv <- id(_.concat(asite, ls))
-        } yield lv
-      case e @ ESymbol(desc) =>
-        val asite = AllocSite(e.asite, cp.view)
-        for {
-          v <- transfer(desc)
-          lv <- id(_.allocSymbol(asite, v))
-        } yield lv
-      case e @ ECopy(obj) =>
-        val asite = AllocSite(e.asite, cp.view)
-        for {
-          v <- transfer(obj)
-          lv <- id(_.copyObj(asite, v))
-        } yield lv
-      case e @ EKeys(map, intSorted) =>
-        val asite = AllocSite(e.asite, cp.view)
-        for {
-          v <- transfer(map)
-          lv <- id(_.keys(asite, v, intSorted))
-        } yield lv
-      case EDuplicated(expr) =>
-        for {
-          v <- transfer(expr)
-          st <- get
-        } yield v.duplicated(st)
-      case EIsArrayIndex(expr) =>
-        for {
-          v <- transfer(expr)
-        } yield v.isArrayIndex
-      case EMathVal(n)           => AbsValue(Math(n))
-      case ENumber(n) if n.isNaN => AbsValue(Double.NaN)
-      case ENumber(n)            => AbsValue(n)
-      case EBigInt(n)            => AbsValue(BigInt(n))
-      case EStr(str)             => AbsValue(Str(str))
-      case EBool(b)              => AbsValue(Bool(b))
-      case EUndef()              => AbsValue(Undef)
-      case ENull()               => AbsValue(Null)
-      case EAbsent()             => AbsValue(Absent)
-      case EConst(name)          => AbsValue(Const(name))
-      case ECodeUnit(c)          => AbsValue(CodeUnit(c))
-    }
+                st <- get
+                captured = cap.map(x => x -> st.lookupLocal(x)).toMap
+              } yield AbsValue(AClo(f, captured))
+            case None =>
+              for { _ <- put(AbsState.Bot) } yield AbsValue.Bot
+          }
+        case ECont(fname) =>
+          for {
+            st <- get
+            func = cfg.fnameMap(fname)
+            target = NodePoint(func, func.entry, cp.view)
+            captured = st.locals.collect { case (x: Name, av) => x -> av }
+            // return edges for resumed evaluation
+            currRp = ReturnPoint(cp.func, cp.view)
+            contRp = ReturnPoint(func, cp.view)
+            _ = sem.retEdges += (contRp -> sem.retEdges
+              .getOrElse(currRp, Set()))
+          } yield AbsValue(ACont(target, captured))
+        case ERandom() => pure(AbsValue.numberTop)
+        case ESyntactic(name, args, rhsIdx, children) =>
+          for {
+            cs <- join(children.map {
+              case Some(child) => transfer(child).map(Some(_))
+              case None        => pure(None)
+            })
+          } yield {
+            if (cs.exists(cOpt => cOpt.fold(false)(_.isBottom))) AbsValue.Bot
+            else {
+              val cs0 = cs.map(cOpt =>
+                cOpt.map(_.getSingle match {
+                  case One(AstValue(child)) => child
+                  case _                    => exploded("ESyntactic")
+                }),
+              )
+              AbsValue(Syntactic(name, args, rhsIdx, cs0))
+            }
+          }
+        case ELexical(name, expr) => notSupported("ELexical")
+        case e @ EMap(tname, props) =>
+          val asite = AllocSite(e.asite, cp.view)
+          for {
+            pairs <- join(props.map {
+              case (kexpr, vexpr) =>
+                for {
+                  k <- transfer(kexpr)
+                  v <- transfer(vexpr)
+                } yield (k, v)
+            })
+            lv <- id(_.allocMap(asite, tname, pairs))
+          } yield lv
+        case e @ EList(exprs) =>
+          val asite = AllocSite(e.asite, cp.view)
+          for {
+            vs <- join(exprs.map(transfer))
+            lv <- id(_.allocList(asite, vs))
+          } yield lv
+        case e @ EListConcat(exprs) =>
+          val asite = AllocSite(e.asite, cp.view)
+          for {
+            ls <- join(exprs.map(transfer))
+            lv <- id(_.concat(asite, ls))
+          } yield lv
+        case e @ ESymbol(desc) =>
+          val asite = AllocSite(e.asite, cp.view)
+          for {
+            v <- transfer(desc)
+            lv <- id(_.allocSymbol(asite, v))
+          } yield lv
+        case e @ ECopy(obj) =>
+          val asite = AllocSite(e.asite, cp.view)
+          for {
+            v <- transfer(obj)
+            lv <- id(_.copyObj(asite, v))
+          } yield lv
+        case e @ EKeys(map, intSorted) =>
+          val asite = AllocSite(e.asite, cp.view)
+          for {
+            v <- transfer(map)
+            lv <- id(_.keys(asite, v, intSorted))
+          } yield lv
+        case EDuplicated(expr) =>
+          for {
+            v <- transfer(expr)
+            st <- get
+          } yield v.duplicated(st)
+        case EIsArrayIndex(expr) =>
+          for {
+            v <- transfer(expr)
+          } yield v.isArrayIndex
+        case EMathVal(n)           => AbsValue(Math(n))
+        case ENumber(n) if n.isNaN => AbsValue(Double.NaN)
+        case ENumber(n)            => AbsValue(n)
+        case EBigInt(n)            => AbsValue(BigInt(n))
+        case EStr(str)             => AbsValue(Str(str))
+        case EBool(b)              => AbsValue(Bool(b))
+        case EUndef()              => AbsValue(Undef)
+        case ENull()               => AbsValue(Null)
+        case EAbsent()             => AbsValue(Absent)
+        case EConst(name)          => AbsValue(Const(name))
+        case ECodeUnit(c)          => AbsValue(CodeUnit(c))
+      },
+      expr,
+      expr.toString(),
+    )
 
   /** transfer function for references */
   def transfer(ref: Ref)(using cp: ControlPoint): Result[AbsRefValue] =
@@ -559,7 +566,7 @@ class AbsTransfer(sem: AbsSemantics) extends Optimized with PruneHelper {
 
   /** transfer function for reference values */
   def transfer(rv: AbsRefValue)(using cp: ControlPoint): Result[AbsValue] =
-    for { v <- get(_.get(rv, cp)) } yield v
+    bottomCheck(for { v <- get(_.get(rv, cp)) } yield v, rv)
 
   /** transfer function for unary operators */
   def transfer(
@@ -678,4 +685,25 @@ class AbsTransfer(sem: AbsSemantics) extends Optimized with PruneHelper {
         } yield v
     }
   } yield v
+  // check bottom abstract types
+  def bottomCheck(f: Updater): Updater = st =>
+    if (st.isBottom)
+      warning("bottomcheck"); st
+    else f(st)
+  def bottomCheck(
+    f: Result[AbsValue],
+    expr: Expr,
+    target: Any,
+  ): Result[AbsValue] =
+    expr match {
+      case EReturnIfAbrupt(_, true) => f
+      case _                        => bottomCheck(f, target)
+    }
+  def bottomCheck(f: Result[AbsValue], target: Any): Result[AbsValue] =
+    for (t <- f) yield { bottomCheck(t, target); t }
+  def bottomCheck(t: AbsValue, target: Any): Boolean = if (t.isBottom) {
+    warning("bottom result" + (if (target == "") target else s" @ $target"))
+    true
+  } else false
+
 }
