@@ -317,6 +317,7 @@ object TyModel {
           "Extensible" -> BoolT,
           "Prototype" -> (NameT("Object") || NullT),
           "SubMap" -> SubMapT(StrT || SymbolT, NameT("PropertyDescriptor")),
+          "ErrorData" -> (AbsentT || UndefT),
         ),
       ),
       "OrdinaryObject" -> TyInfo(

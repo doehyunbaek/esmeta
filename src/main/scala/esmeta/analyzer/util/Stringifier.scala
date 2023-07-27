@@ -11,6 +11,12 @@ import esmeta.ty.util.{Stringifier => TyStringifier}
 import esmeta.util.*
 import esmeta.util.Appender.*
 import esmeta.util.BaseUtils.*
+import esmeta.ir.EMap
+import esmeta.ir.Prop
+import esmeta.ir.Global
+import esmeta.ir.Name
+import esmeta.ir.Temp
+import esmeta.ir.EStr
 
 /** stringifier for analyzer */
 class Stringifier(
@@ -98,6 +104,17 @@ class Stringifier(
         app >> " in " >> plp.func.name
         for (ref <- plp.ref) app >> ref
         app
+      case MapAllocPoint(cp: ControlPoint, emap: EMap) =>
+        app >> "map allocation "
+        app >> "in " >> cp.func.name >> emap
+      case pap: PropertyAssignPoint =>
+        lazy val inlineProp = "([_a-zA-Z][_a-zA-Z0-9]*)".r
+        app >> "property assignment to "
+        for (ref <- pap.ref)
+          import irStringifier.given
+          app >> ref
+        app >> " in " >> pap.func.name
+        app
 
   // control points
   given cpRule: Rule[ControlPoint] = (app, cp) =>
@@ -165,7 +182,13 @@ class Stringifier(
       case NoReturn(rp, cause) =>
         app >> "[NoReturn] " >> rp
         app :> "- cause: " >> cause
-
+      case UnknownMapMismatch(cp, base) =>
+        app >> "[UnknownMapMismatch] " >> cp
+        app :> "- base    : " >> base
+      case PropertyTypeMismatch(cp, expected, actual) =>
+        app >> "[PropertyTypeMismatch] " >> cp
+        app :> "- expected: " >> expected
+        app :> "- actual  : " >> actual
   private val addLocRule: Rule[IRElem with LangEdge] = (app, elem) => {
     for {
       lang <- elem.langOpt

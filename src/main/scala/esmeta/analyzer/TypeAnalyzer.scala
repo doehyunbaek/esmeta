@@ -365,5 +365,7 @@ object TypeAnalyzer {
     invalidListProperty: Boolean = true,
     invalidSymbolProperty: Boolean = true,
     invalidSubMapProperty: Boolean = true,
+    propertyUpdate: Boolean = true,
+    mapAlloc: Boolean = true,
   )
 }
