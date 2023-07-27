@@ -318,6 +318,10 @@ object TyModel {
           "Prototype" -> (NameT("Object") || NullT),
           "SubMap" -> SubMapT(StrT || SymbolT, NameT("PropertyDescriptor")),
           "ErrorData" -> (AbsentT || UndefT),
+          "BooleanData" -> (AbsentT || BoolT),
+          "NumberData" -> (AbsentT || NumberT),
+          "SymbolData" -> (AbsentT || SymbolT),
+          "BigIntData" -> (AbsentT || BigIntT),
         ),
       ),
       "OrdinaryObject" -> TyInfo(
@@ -517,7 +521,7 @@ object TyModel {
       "PromiseReaction" -> TyInfo(
         fields = Map(
           "Capability" -> (NameT("PromiseCapabilityRecord") || UndefT),
-          "Ty" -> (FULFILL || REJECT),
+          "Type" -> (FULFILL || REJECT),
           "Handler" -> (NameT("JobCallbackRecord") || EMPTY),
         ),
       ),
