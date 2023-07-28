@@ -86,6 +86,7 @@ case class TyModel(infos: Map[String, TyInfo] = Map()) {
   /** get types of property */
   def getPropOrElse(tname: String, p: String)(default: => ValueTy): ValueTy =
     if (tname == "IntrinsicsRecord" && p.startsWith("%") && p.endsWith("%"))
+      // can be  made more precise for %ThrowTypeError% which is function object(https://tc39.es/ecma262/2022/#table-well-known-intrinsic-objects)
       NameT("Object")
     else
       propMap
@@ -222,7 +223,7 @@ object TyModel {
           "GlobalObject" -> (UndefT || NameT("Object")),
           "GlobalEnv" -> NameT("GlobalEnvironmentRecord"),
           "TemplateMap" -> ListT(NameT("TemplatePair")),
-          "HostDefined" -> UndefT,
+          "HostDefined" -> AnyT,
         ),
       ),
       "TemplatePair" -> TyInfo(
@@ -322,6 +323,8 @@ object TyModel {
           "NumberData" -> (AbsentT || NumberT),
           "SymbolData" -> (AbsentT || SymbolT),
           "BigIntData" -> (AbsentT || BigIntT),
+          "DateValue" -> (AbsentT || NumberT),
+          "CleanupCallback" -> (AbsentT || NameT("JobCallbackRecord")),
         ),
       ),
       "OrdinaryObject" -> TyInfo(
@@ -332,6 +335,11 @@ object TyModel {
       ),
       "FunctionObject" -> TyInfo(
         parent = Some("OrdinaryObject"),
+        fields = Map(
+          "Errors" -> (AbsentT || ListT),
+          "Values" -> (AbsentT || ListT),
+          "Index" -> (AbsentT || MathT),
+        )
       ),
       "ECMAScriptFunctionObject" -> TyInfo(
         parent = Some("FunctionObject"),
@@ -728,7 +736,7 @@ object TyModel {
       "JobCallbackRecord" -> TyInfo(
         fields = Map(
           "Callback" -> NameT("FunctionObject"),
-          "HostDefined" -> UndefT,
+          "HostDefined" -> AnyT,
         ),
       ),
 
@@ -751,7 +759,7 @@ object TyModel {
         fields = Map(
           "Realm" -> (NameT("RealmRecord") || UndefT),
           "ECMAScriptCode" -> AstT("Script"),
-          "HostDefined" -> EMPTY,
+          "HostDefined" -> AnyT,
         ),
       ),
 
@@ -761,7 +769,7 @@ object TyModel {
           "Realm" -> NameT("RealmRecord"),
           "Environment" -> (NameT("ModuleEnvironmentRecord") || EMPTY),
           "Namespace" -> (NameT("ModuleNamespaceExoticObject") || EMPTY),
-          "HostDefined" -> UndefT,
+          "HostDefined" -> AnyT,
         ),
       ),
       "CyclicModuleRecord" -> TyInfo(
