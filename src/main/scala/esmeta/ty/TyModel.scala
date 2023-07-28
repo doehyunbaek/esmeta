@@ -339,7 +339,7 @@ object TyModel {
           "Errors" -> (AbsentT || ListT),
           "Values" -> (AbsentT || ListT),
           "Index" -> (AbsentT || MathT),
-        )
+        ),
       ),
       "ECMAScriptFunctionObject" -> TyInfo(
         parent = Some("FunctionObject"),
