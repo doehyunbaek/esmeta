@@ -26,11 +26,13 @@ case class NameTy(set: BSet[String] = Fin())
 
   /** union type */
   def ||(that: => NameTy): NameTy = (this.set, that.set) match
-    case _ if this eq that      => this
-    case (_, Inf) | (Inf, _)    => Top
-    case _ if this.isBottom     => that
-    case _ if that.isBottom     => this
-    case (Fin(lset), Fin(rset)) => NameTy(Fin(lset ++ rset)).norm
+    case _ if this eq that   => this
+    case (_, Inf) | (Inf, _) => Top
+    case _ if this.isBottom  => that
+    case _ if that.isBottom  => this
+    case (Fin(lset), Fin(rset)) =>
+      if esmeta.ty.TyModel.es == null then NameTy(Fin(lset ++ rset))
+      else NameTy(Fin(lset ++ rset)).norm
 
   /** intersection type */
   def &&(that: => NameTy): NameTy = (this.set, that.set) match
