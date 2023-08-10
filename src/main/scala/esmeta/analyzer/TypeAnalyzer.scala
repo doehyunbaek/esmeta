@@ -317,6 +317,14 @@ class TypeAnalyzer(
       data = errors.toList.map(_.toString).sorted.mkString(LINE_SEP),
       filename = s"$ANALYZE_LOG_DIR/errors",
     )
+    dumpFile(
+      name = "fingerprints of type errors",
+      data = errors.toList
+        .map(_.toFingerprint)
+        .sorted
+        .mkString(LINE_SEP),
+      filename = s"$ANALYZE_LOG_DIR/fingerprints",
+    )
     if (detail)
       val UNREACHABLE_DIR = s"$ANALYZE_LOG_DIR/unreachable"
       val unreachableFuncs = cfg.funcs.filterNot(analyzedFuncs.contains)
