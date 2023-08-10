@@ -21,6 +21,7 @@ jobs:
       - name: typecheck
         run: ./bin/esmeta tycheck -status -tycheck:log
       - name: Archive artifacts
+        if: always()
         uses: actions/upload-artifact@v3
         with:
           name: typecheck logs
