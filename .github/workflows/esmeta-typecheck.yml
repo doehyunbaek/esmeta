@@ -3,7 +3,8 @@ name: 'esmeta typecheck'
 on:
   push:
   pull_request:
-
+env:
+  ESMETA_HOME: ${{ github.workspace }}
 jobs:
   esmeta-typecheck:
     name: 'esmeta typecheck'
