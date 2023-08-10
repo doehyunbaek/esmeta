@@ -1,0 +1,28 @@
+name: 'esmeta typecheck'
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  esmeta-typecheck:
+    name: 'esmeta typecheck'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: build esmeta
+        run: |
+          cd "${ESMETA_HOME}"
+          sbt assembly
+      - name: typecheck
+        run: ./bin/esmeta tycheck -status -tycheck:log
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: typecheck logs
+          path: |
+            logs/analyze/summary.yml
+            logs/analyze/errors
