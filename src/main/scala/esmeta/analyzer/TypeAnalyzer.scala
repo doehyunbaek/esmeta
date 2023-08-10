@@ -316,6 +316,14 @@ class TypeAnalyzer(
         .mkString(LINE_SEP),
       filename = s"$ANALYZE_LOG_DIR/errors",
     )
+    dumpFile(
+      name = "fingerprints of type errors",
+      data = errors.toList
+        .map(_.toFingerprint)
+        .sorted
+        .mkString(LINE_SEP),
+      filename = s"$ANALYZE_LOG_DIR/fingerprints",
+    )
     if (detail)
       dumpFile(
         name = "analysis result for each control point",
