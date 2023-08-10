@@ -1,12 +1,11 @@
-name: 'esmeta typecheck'
-
+name: 'typecheck'
 on:
   push:
   pull_request:
 env:
   ESMETA_HOME: ${{ github.workspace }}
 jobs:
-  esmeta-typecheck:
+  typecheck:
     name: 'esmeta typecheck'
     runs-on: ubuntu-latest
     steps:
@@ -16,7 +15,6 @@ jobs:
           submodules: true
       - name: build esmeta
         run: |
-          cd "${ESMETA_HOME}"
           sbt assembly
       - name: typecheck
         run: ./bin/esmeta tycheck -status -tycheck:log
