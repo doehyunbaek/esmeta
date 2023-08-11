@@ -1,0 +1,33 @@
+name: post-submit
+on:
+  push:
+    branches:
+      - adv-ty-refine
+jobs:
+  report_sheets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - id: "echo_url"
+        run: |
+          echo "commit_url=https://github.com/${{github.repository}}/commit/${{github.sha}}" >> $GITHUB_ENV
+      - id: "run_test"
+        run: |
+          # output URL, date, succeeded, failed, canceled, ignored, pending
+          data="esmeta plrg"
+          echo "test_result=$data" >> $GITHUB_ENV
+      - id: "update_worksheet"
+        uses: jroehl/gsheet.action@v1.0.0 # you can specify '@release' to always have the latest changes
+        with:
+          spreadsheetId: 1mtm0dJKGKbSJZRXjIsKm7htJ3o0IB9I-W1DJYzhDdbc
+          commands: | # list of commands, specified as a valid JSON string
+            [
+              { "command": "getWorksheet", "args": { "worksheetTitle": "report" }},
+              { "command": "appendData", "args": { "data": ${{ env.test_result }}, "minCol": 1 }}
+            ]
+        env:
+          GSHEET_CLIENT_EMAIL: ${{ secrets.GSHEET_CLIENT_EMAIL }}
+          GSHEET_PRIVATE_KEY: ${{ secrets.GSHEET_PRIVATE_KEY }}
