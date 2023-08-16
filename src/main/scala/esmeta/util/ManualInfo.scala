@@ -22,7 +22,7 @@ case class ManualInfo(version: Option[Spec.Version]) {
   def compileRule: CompileRule = getCompileRule(paths)
 
   /** get fingerprints tags */
-  def fingerprintTags: Map[String, List[String]] = getFingerprintTags(paths)
+  def fingerprintTags: FingerprintTags = getFingerprintTags(paths)
 
   /** get bugfixes */
   def bugfixFile: Option[File] = bugfixPath.map(File(_))
@@ -57,14 +57,13 @@ case class ManualInfo(version: Option[Spec.Version]) {
     .foldLeft[CompileRule](Map())(_ ++ _)
   private def getFingerprintTags(
     paths: List[String],
-  ): Map[String, List[String]] = paths
+  ): FingerprintTags = paths
     .map(path => s"$MANUALS_DIR/$path/fingerprint-tag.json")
-    .map(path =>
-      optional(readJson[Map[String, List[String]]](path)).getOrElse(Map()),
-    )
-    .foldLeft[Map[String, List[String]]](Map())(_ ++ _)
+    .map(path => optional(readJson[FingerprintTags](path)).getOrElse(Map()))
+    .foldLeft[FingerprintTags](Map())(_ ++ _)
   private lazy val paths: List[String] =
     List("default") ++ version.map(_.shortHash)
 }
 object ManualInfo:
   type CompileRule = Map[String, Map[String, String]]
+  type FingerprintTags = Map[String, Map[String, List[String]]]

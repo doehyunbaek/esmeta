@@ -216,7 +216,7 @@ class TypeAnalyzer(
   def apply(
     targets: List[Func],
     ignore: Ignore,
-    tags: Map[String, List[String]],
+    tags: ManualInfo.FingerprintTags,
     log: Boolean,
     detail: Boolean,
     silent: Boolean,
@@ -269,7 +269,7 @@ class TypeAnalyzer(
   def apply(
     target: Option[String],
     ignore: Ignore,
-    tags: Map[String, List[String]],
+    tags: ManualInfo.FingerprintTags,
     log: Boolean,
     detail: Boolean,
     silent: Boolean,
@@ -282,7 +282,7 @@ class TypeAnalyzer(
   private def logging(
     sem: Semantics,
     errors: Set[TypeError],
-    tags: Map[String, List[String]],
+    tags: ManualInfo.FingerprintTags,
     detail: Boolean = false,
   ): Unit = {
     mkdir(ANALYZE_LOG_DIR)
@@ -321,14 +321,30 @@ class TypeAnalyzer(
       data = errors.toList.map(_.toString).sorted.mkString(LINE_SEP),
       filename = s"$ANALYZE_LOG_DIR/errors",
     )
-    dumpFile(
-      name = "fingerprints of type errors",
-      data = errors.toList
-        .map(_.toFingerprint)
-        .sorted
-        .mkString(LINE_SEP),
-      filename = s"$ANALYZE_LOG_DIR/fingerprints",
-    )
+
+    /* Partition fingerprints into true bugs, false alarms, and unknown */
+    def partitionFingerPrints(): Unit =
+      val trueBugs = tags("true bugs")
+        .flatten {
+          case (f, bugs) => bugs
+        }
+      val falseAlarms = tags("false alarms")
+        .flatten {
+          case (f, alarms) => alarms
+        }
+      // this also has an effect of deduplicating errors mapped to same fingerprints
+      val unknowns = (errors
+        .map { _.toFingerprint } -- trueBugs -- falseAlarms).toList.sorted
+      val data =
+        List(s"true bugs: ${trueBugs.size}") ++ List(
+          s"false alarms: ${falseAlarms.size}",
+        ) ++ List(s"unknown: ${unknowns.size} ") ++ unknowns
+      dumpFile(
+        name = "fingerprints of type errors",
+        data = data.mkString(LINE_SEP),
+        filename = s"$ANALYZE_LOG_DIR/fingerprints",
+      )
+    partitionFingerPrints()
     if (detail)
       val UNREACHABLE_DIR = s"$ANALYZE_LOG_DIR/unreachable"
       val unreachableFuncs = cfg.funcs.filterNot(analyzedFuncs.contains)
