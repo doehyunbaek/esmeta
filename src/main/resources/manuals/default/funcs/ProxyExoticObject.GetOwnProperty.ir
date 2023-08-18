@@ -1,0 +1,61 @@
+def <INTERNAL>:ProxyExoticObject.GetOwnProperty(
+  O: ProxyExoticObject,
+  P: Symbol | String,
+): Normal[PropertyDescriptor | Undefined] | Abrupt {
+  let handler = O.ProxyHandler
+  if (= handler null) {
+    return comp[~throw~/~empty~]((new OrdinaryObject("Prototype" -> @EXECUTION_STACK[0].Realm.Intrinsics["%TypeError.prototype%"], "ErrorData" -> undefined)))
+  } else {}
+  assert (= (typeof handler) @Object)
+  let target = O.ProxyTarget
+  call %0 = clo<GetMethod>(handler, "getOwnPropertyDescriptor")
+  let trap = [? %0]
+  if (= trap undefined) {
+    method-call %1 = target->GetOwnProperty(P)
+    return [? %1]
+  } else {}
+  call %2 = clo<Call>(trap, handler, (new [target, P]))
+  let trapResultObj = [? %2]
+  if (! (|| (= (typeof trapResultObj) @Object) (= (typeof trapResultObj) @Undefined))) {
+    return comp[~throw~/~empty~]((new OrdinaryObject("Prototype" -> @EXECUTION_STACK[0].Realm.Intrinsics["%TypeError.prototype%"], "ErrorData" -> undefined)))
+  } else {}
+  method-call %3 = target->GetOwnProperty(P)
+  let targetDesc = [? %3]
+  if (= trapResultObj undefined) {
+    if (= targetDesc undefined) {
+      return undefined
+    } else {}
+    if (= targetDesc.Configurable false) {
+      return comp[~throw~/~empty~]((new OrdinaryObject("Prototype" -> @EXECUTION_STACK[0].Realm.Intrinsics["%TypeError.prototype%"], "ErrorData" -> undefined)))
+    } else {}
+    call %4 = clo<IsExtensible>(target)
+    let extensibleTarget = [? %4]
+    if (= extensibleTarget false) {
+      return comp[~throw~/~empty~]((new OrdinaryObject("Prototype" -> @EXECUTION_STACK[0].Realm.Intrinsics["%TypeError.prototype%"], "ErrorData" -> undefined)))
+    } else {}
+    return undefined
+  } else {}
+  call %5 = clo<IsExtensible>(target)
+  let extensibleTarget = [? %5]
+  call %6 = clo<ToPropertyDescriptor>(trapResultObj)
+  let resultDesc = [? %6]
+  call %7 = clo<CompletePropertyDescriptor>(resultDesc)
+  (debug targetDesc)
+  call %8 = clo<IsCompatiblePropertyDescriptor>(extensibleTarget, resultDesc, targetDesc)
+  let valid = %8
+  if (= valid false) {
+    return comp[~throw~/~empty~]((new OrdinaryObject("Prototype" -> @EXECUTION_STACK[0].Realm.Intrinsics["%TypeError.prototype%"], "ErrorData" -> undefined)))
+  } else {}
+  if (= resultDesc.Configurable false) {
+    if (|| (= targetDesc undefined) (= targetDesc.Configurable true)) {
+      return comp[~throw~/~empty~]((new OrdinaryObject("Prototype" -> @EXECUTION_STACK[0].Realm.Intrinsics["%TypeError.prototype%"], "ErrorData" -> undefined)))
+    } else {}
+    if (&& (! (= resultDesc.Writable absent)) (= resultDesc.Writable false)) {
+      assert (! (= targetDesc.Writable absent))
+      if (= targetDesc.Writable true) {
+        return comp[~throw~/~empty~]((new OrdinaryObject("Prototype" -> @EXECUTION_STACK[0].Realm.Intrinsics["%TypeError.prototype%"], "ErrorData" -> undefined)))
+      } else {}
+    } else {}
+  } else {}
+  return resultDesc
+}
